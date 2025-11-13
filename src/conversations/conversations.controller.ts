@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Query, Body, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get,  Put, Param, Query, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { WhatsappStorageService } from './whatsapp-storage.service';
 import { WhatsappAlertsService } from './whatsapp-alerts.service';
 import { Types } from 'mongoose';
@@ -18,10 +18,10 @@ export class ConversationsController {
   @Get('sessions/:sessionId/chats')
   async getChats(
     @Param('sessionId') sessionId: string,
-    @Query('archived', new DefaultValuePipe(undefined), ParseBoolPipe) archived?: boolean,
-    @Query('isGroup', new DefaultValuePipe(undefined), ParseBoolPipe) isGroup?: boolean,
-    @Query('limit', new DefaultValuePipe(500), ParseIntPipe) limit?: number,
-    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
+    @Query('archived') archived?: boolean,
+    @Query('isGroup') isGroup?: boolean,
+    @Query('limit') limit?: number,
+    @Query('skip') skip?: number,
   ) {
     return this.storageService.getStoredChats(sessionId, {
       archived,
@@ -52,12 +52,14 @@ export class ConversationsController {
   async getMessages(
     @Param('sessionId') sessionId: string,
     @Query('chatId') chatId?: string,
-    @Query('includeDeleted', new DefaultValuePipe(false), ParseBoolPipe) includeDeleted?: boolean,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
-    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
-    @Query('startTimestamp', new DefaultValuePipe(undefined), ParseIntPipe) startTimestamp?: number,
-    @Query('endTimestamp', new DefaultValuePipe(undefined), ParseIntPipe) endTimestamp?: number,
+    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query('limit') limit?: number,
+    @Query('skip') skip?: number,
+    @Query('startTimestamp') startTimestamp?: number,
+    @Query('endTimestamp') endTimestamp?: number,
   ) {
+    console.log({chatId});
+    
     return this.storageService.getStoredMessages(sessionId, chatId, {
       includeDeleted,
       limit,
@@ -79,7 +81,7 @@ export class ConversationsController {
   async getDeletedMessages(
     @Param('sessionId') sessionId: string,
     @Query('chatId') chatId?: string,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('limit') limit?: number,
   ) {
     return this.storageService.getDeletedMessages(sessionId, chatId, limit);
   }

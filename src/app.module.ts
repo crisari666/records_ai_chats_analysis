@@ -23,20 +23,9 @@ import { RabbitService } from './shared/rabbit.service';
       },
       inject: [ConfigService],
     }),
-    ClientsModule.register([
-      {
-        name: 'WHATSAPP_WEB_MICROSERVICE',
-        transport: Transport.RMQ,
-        options: {
-          urls: ['amqp://guest:guest@localhost:5672'],
-          queue: 'whatsapp_events', // where MS2 is listening
-          queueOptions: { durable: true },
-        },
-      },
-    ]),
     ConversationsModule
   ],
   controllers: [AppController],
-  providers: [AppService, RabbitService],
+  providers: [AppService],
 })
 export class AppModule {}

@@ -4,6 +4,15 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const port = process.env.APP_PORT;
+
+  app.setGlobalPrefix('ai-rest');
+
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
@@ -15,9 +24,9 @@ async function bootstrap() {
       },
     },
   });
-
+  await app.startAllMicroservices();
 
   
-  await app.listen(3000);
+  await app.listen(port);
 }
 bootstrap();
