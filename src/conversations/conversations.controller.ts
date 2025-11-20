@@ -1,6 +1,7 @@
-import { Controller, Get,  Put, Param, Query, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Put, Post, Param, Query, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { WhatsappStorageService } from './whatsapp-storage.service';
 import { WhatsappAlertsService } from './whatsapp-alerts.service';
+import { ConversationsService } from './conversations.service';
 import { Types } from 'mongoose';
 
 @Controller('conversations')
@@ -8,7 +9,8 @@ export class ConversationsController {
   constructor(
     private readonly storageService: WhatsappStorageService,
     private readonly alertsService: WhatsappAlertsService,
-  ) {}
+    private readonly conversationsService: ConversationsService,
+  ) { }
 
   @Get('sessions')
   async getSessions() {
@@ -48,6 +50,14 @@ export class ConversationsController {
     return { message: 'Chat marked as deleted' };
   }
 
+  @Post('sessions/:sessionId/chats/:chatId/analyze')
+  async analyzeChat(
+    @Param('sessionId') sessionId: string,
+    @Param('chatId') chatId: string,
+  ) {
+    return this.conversationsService.analyzeConversation(sessionId, chatId);
+  }
+
   @Get('sessions/:sessionId/messages')
   async getMessages(
     @Param('sessionId') sessionId: string,
@@ -58,8 +68,8 @@ export class ConversationsController {
     @Query('startTimestamp') startTimestamp?: number,
     @Query('endTimestamp') endTimestamp?: number,
   ) {
-    console.log({chatId});
-    
+    console.log({ chatId });
+
     return this.storageService.getStoredMessages(sessionId, chatId, {
       includeDeleted,
       limit,

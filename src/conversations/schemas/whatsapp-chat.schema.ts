@@ -68,6 +68,13 @@ export class WhatsAppChat {
   @Prop({ type: [Date], default: [] })
   deletedAt: Date[];
 
+  // Analysis result from LLM
+  @Prop({ type: Object, default: null })
+  analysis: any;
+
+  @Prop({ type: Number, default: null })
+  lastAnalysisTimestamp: Date;
+
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;

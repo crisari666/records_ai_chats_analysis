@@ -66,35 +66,35 @@ export class OllamaService {
    */
   private buildPrompt(projectConfig: ProjectResponse, conversation: string): string {
     const config = projectConfig.config;
-    
+
     let prompt = `You are an AI agent configured for: ${config.name}\n\n`;
-    
+
     if (config.description) {
       prompt += `Description: ${config.description}\n\n`;
     }
-    
+
     if (config.domain) {
       prompt += `Domain: ${config.domain}\n\n`;
     }
-    
+
     if (config.instructions && config.instructions.length > 0) {
       prompt += `Instructions:\n${config.instructions.map((inst, idx) => `${idx + 1}. ${inst}`).join('\n')}\n\n`;
     }
-    
+
     if (config.fields && Object.keys(config.fields).length > 0) {
       prompt += `Fields to analyze:\n${Object.entries(config.fields).map(([key, value]) => `- ${key}: ${value}`).join('\n')}\n\n`;
     }
-    
+
     if (config.output_format) {
       prompt += `Output Format: ${JSON.stringify(config.output_format, null, 2)}\n\n`;
     }
-    
+
     if (config.example_analysis && config.example_analysis.length > 0) {
       prompt += `Example Analysis:\n${JSON.stringify(config.example_analysis, null, 2)}\n\n`;
     }
-    
-    prompt += `\n---\n\nConversation to analyze:\n\n${conversation}\n\n---\n\nPlease analyze this conversation according to the configuration above.`;
-    
+
+    prompt += `\n---\n\nConversation to analyze:\n\n${conversation}\n\n---\n\nPlease analyze this conversation according to the configuration above. IMPORTANT: Return ONLY a valid JSON object matching the Output Format. Do not include any markdown formatting or explanation.`;
+
     return prompt;
   }
 
@@ -103,33 +103,33 @@ export class OllamaService {
    * @param projectConfig - Project configuration
    * @param chatId - The chat ID
    * @param sessionId - The session ID
-   * @returns LLM response
+   * @returns LLM response as an object
    */
   async analyzeConversation(
     projectConfig: ProjectResponse,
     chatId: string,
     sessionId: string,
-  ): Promise<string> {
+  ): Promise<any> {
     try {
       this.logger.log(`Starting conversation analysis for chat ${chatId} with model deep-seek-llm`);
-      
+
       // Get conversation messages
       const messages = await this.getConversationMessages(chatId, sessionId);
-      
+
       if (messages.length === 0) {
         this.logger.warn(`No messages found for chat ${chatId}`);
-        return 'No messages found in this conversation.';
+        return { error: 'No messages found in this conversation.' };
       }
-      
+
       // Format messages for LLM
       const conversation = this.formatMessagesForLLM(messages);
-      
+
       // Build prompt with config and conversation
       const prompt = this.buildPrompt(projectConfig, conversation);
-      
+
       this.logger.log(`Sending request to Ollama with deep-seek-llm model`);
-      
-      
+
+
       // Call Ollama API using chat format
       const response = await this.ollama.chat({
         model: 'deepseek-llm',
@@ -139,14 +139,30 @@ export class OllamaService {
             content: prompt,
           },
         ],
+        format: 'json',
         stream: false,
       });
-      
-      const analysisResult = response.message?.content || '';
+
+      const analysisResult = response.message?.content || '{}';
       this.logger.log(`Received response from Ollama (${analysisResult.length} characters)`);
-      console.log('Ollama Analysis Response:', analysisResult);
-      
-      return analysisResult;
+
+      try {
+        const parsedResult = JSON.parse(analysisResult);
+        console.log('Ollama Analysis Response (Parsed):', parsedResult);
+        return parsedResult;
+      } catch (e) {
+        this.logger.error('Failed to parse Ollama response as JSON', e);
+        console.log('Raw Ollama Response:', analysisResult);
+        // Attempt to clean up the response if it contains markdown code blocks
+        const cleanResult = analysisResult.replace(/```json\n|\n```/g, '').trim();
+        try {
+          const parsedCleanResult = JSON.parse(cleanResult);
+          return parsedCleanResult;
+        } catch (e2) {
+          return { raw: analysisResult, error: 'Failed to parse JSON' };
+        }
+      }
+
     } catch (error) {
       this.logger.error(`Error analyzing conversation for chat ${chatId}:`, error);
       throw error;

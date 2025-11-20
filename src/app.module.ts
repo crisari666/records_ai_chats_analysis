@@ -7,6 +7,7 @@ import databaseConfig from './config/database.config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { RabbitService } from './shared/rabbit.service';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -23,9 +24,10 @@ import { RabbitService } from './shared/rabbit.service';
       },
       inject: [ConfigService],
     }),
+    ScheduleModule.forRoot(),
     ConversationsModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
