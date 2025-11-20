@@ -11,6 +11,7 @@ import { WhatsAppSession, WhatsAppSessionSchema } from './schemas/whatsapp-sessi
 import { ConversationsQueueController } from './conversations.queue';
 import { RabbitService } from 'src/shared/rabbit.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WhatsappWebGateway } from 'src/websocket/whatsapp-web.gateway';
 import { ConversationsService } from './conversations.service';
 import { HttpService } from './http.service';
@@ -26,15 +27,25 @@ import { OllamaService } from './ollama.service';
       { name: WhatsAppAlert.name, schema: WhatsAppAlertSchema },
       { name: WhatsAppSession.name, schema: WhatsAppSessionSchema },
     ]),
-    ClientsModule.register([
+    ClientsModule.registerAsync([
       {
         name: 'WHATSAPP_WEB_MICROSERVICE',
-        transport: Transport.RMQ,
-        options: {
-          urls: ['amqp://guest:guest@localhost:5672'],
-          queue: 'whatsapp_events_queue', // where MS2 is listening
-          queueOptions: { durable: true },
+        imports: [ConfigModule],
+        useFactory: async (configService: ConfigService) => {
+          const rmqUser = configService.get<string>('RABBIT_MQ_USER');
+          const rmqPass = configService.get<string>('RABBIT_MQ_PASS');
+          const rmqHost = configService.get<string>('RABBIT_MQ_HOST') || 'localhost';
+          const rmqPort = configService.get<string>('RABBIT_MQ_PORT') || '5672';
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [`amqp://${rmqUser}:${rmqPass}@${rmqHost}:${rmqPort}`],
+              queue: 'whatsapp_events_queue', // where MS2 is listening
+              queueOptions: { durable: true },
+            },
+          };
         },
+        inject: [ConfigService],
       },
     ]),
   ],
@@ -42,5 +53,5 @@ import { OllamaService } from './ollama.service';
   providers: [AuthService, WhatsappStorageService, WhatsappAlertsService, RabbitService, WhatsappWebGateway, ConversationsService, HttpService, OllamaService],
   exports: [WhatsappStorageService, WhatsappAlertsService],
 })
-export class ConversationsModule {}
+export class ConversationsModule { }
 

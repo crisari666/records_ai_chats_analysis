@@ -14,10 +14,15 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  const rmqUser = process.env.RABBIT_MQ_USER;
+  const rmqPass = process.env.RABBIT_MQ_PASS;
+  const rmqHost = process.env.RABBIT_MQ_HOST || 'localhost';
+  const rmqPort = process.env.RABBIT_MQ_PORT || '5672';
+
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: ['amqp://guest:guest@localhost:5672'],
+      urls: [`amqp://${rmqUser}:${rmqPass}@${rmqHost}:${rmqPort}`],
       queue: 'records_ai_chats_analysis_events',
       queueOptions: {
         durable: true,
@@ -26,7 +31,7 @@ async function bootstrap() {
   });
   await app.startAllMicroservices();
 
-  
+
   await app.listen(port);
 }
 bootstrap();
