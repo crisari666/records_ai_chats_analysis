@@ -19,16 +19,16 @@ export class WhatsAppSession {
   sessionData?: any;
 
   // Current status of the session
-  @Prop({ 
-    type: String, 
+  @Prop({
+    type: String,
     enum: [
-      'initializing', 
-      'qr_generated', 
-      'authenticated', 
-      'ready', 
-      'disconnected', 
+      'initializing',
+      'qr_generated',
+      'authenticated',
+      'ready',
+      'disconnected',
       'closed',
-      'auth_failure', 
+      'auth_failure',
       'error'
     ],
     default: 'initializing'
@@ -51,10 +51,13 @@ export class WhatsAppSession {
   @Prop({ type: Date, required: false })
   closedAt?: Date;
 
+  @Prop({ type: String, default: null })
+  qrCode: String
+
   // Flag to explicitly mark a session as disconnected
   @Prop({ type: Boolean, default: false })
   isDisconnected: boolean;
-  
+
   @Prop({ type: Boolean, default: false })
   disconnectedAt?: Date;
 

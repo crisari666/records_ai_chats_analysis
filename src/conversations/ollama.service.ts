@@ -4,24 +4,37 @@ import { Model } from 'mongoose';
 import { WhatsAppMessage, WhatsAppMessageDocument } from './schemas/whatsapp-message.schema';
 import { ProjectResponse } from './interfaces/project-config.interface';
 import { Ollama } from 'ollama';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OllamaService {
   private readonly logger = new Logger(OllamaService.name);
   private ollama: Ollama;
+  private readonly ollamaTimeout: number;
+  private readonly maxMessagesForAnalysis: number;
+  private readonly ollamaHost: string;
 
   constructor(
     @InjectModel(WhatsAppMessage.name) private whatsAppMessageModel: Model<WhatsAppMessageDocument>,
+    private configService: ConfigService,
   ) {
-    // Initialize Ollama client (defaults to http://localhost:11434)
-    this.ollama = new Ollama();
+    // Get configuration from environment variables with defaults
+    this.ollamaHost = this.configService.get<string>('OLLAMA_HOST', 'http://localhost:11434');
+    this.ollamaTimeout = this.configService.get<number>('OLLAMA_TIMEOUT', 60000); // 60 seconds default
+    this.maxMessagesForAnalysis = this.configService.get<number>('MAX_MESSAGES_FOR_ANALYSIS', 50); // Limit messages to reduce prompt size
+
+    // Initialize Ollama client with custom host
+    this.ollama = new Ollama({ host: this.ollamaHost });
+
+    this.logger.log(`Ollama service initialized with host: ${this.ollamaHost}, timeout: ${this.ollamaTimeout}ms, max messages: ${this.maxMessagesForAnalysis}`);
   }
 
   /**
    * Get conversation messages for a chat
+   * Limits the number of messages to improve performance
    * @param chatId - The chat ID
    * @param sessionId - The session ID
-   * @returns Array of messages sorted by timestamp
+   * @returns Array of messages sorted by timestamp (limited to most recent)
    */
   async getConversationMessages(chatId: string, sessionId: string): Promise<WhatsAppMessageDocument[]> {
     try {
@@ -31,11 +44,15 @@ export class OllamaService {
           sessionId,
           isDeleted: false,
         })
-        .sort({ timestamp: 1 }) // Sort by timestamp ascending (oldest first)
+        .sort({ timestamp: -1 }) // Sort descending to get most recent first
+        .limit(this.maxMessagesForAnalysis) // Limit number of messages
         .exec();
 
-      this.logger.log(`Retrieved ${messages.length} messages for chat ${chatId}`);
-      return messages;
+      // Reverse to get chronological order (oldest to newest)
+      const chronologicalMessages = messages.reverse();
+
+      this.logger.log(`Retrieved ${chronologicalMessages.length} messages for chat ${chatId} (limited to ${this.maxMessagesForAnalysis})`);
+      return chronologicalMessages;
     } catch (error) {
       this.logger.error(`Error retrieving messages for chat ${chatId}:`, error);
       throw error;
@@ -50,10 +67,10 @@ export class OllamaService {
   private formatMessagesForLLM(messages: WhatsAppMessageDocument[]): string {
     return messages
       .map((msg) => {
-        const sender = msg.fromMe ? 'User' : 'Contact';
+        const sender = msg.fromMe ? 'Agent' : 'Customer';
         const timestamp = new Date(msg.timestamp * 1000).toISOString();
         const body = msg.body || '[Media or empty message]';
-        return `[${timestamp}] ${sender}: ${body}`;
+        return `${sender}: ${body}`;
       })
       .join('\n');
   }
@@ -124,24 +141,43 @@ export class OllamaService {
       // Format messages for LLM
       const conversation = this.formatMessagesForLLM(messages);
 
+      console.log({ conversation });
+
       // Build prompt with config and conversation
       const prompt = this.buildPrompt(projectConfig, conversation);
 
-      this.logger.log(`Sending request to Ollama with deep-seek-llm model`);
+      this.logger.log(`Sending request to Ollama with deepseek-llm model (timeout: ${this.ollamaTimeout}ms)`);
+      const startTime = Date.now();
 
-
-      // Call Ollama API using chat format
-      const response = await this.ollama.chat({
-        model: 'deepseek-llm',
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
+      // Call Ollama API using chat format with timeout and optimized parameters
+      const response = await Promise.race([
+        this.ollama.chat({
+          model: 'deepseek-llm',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          format: 'json',
+          stream: false,
+          options: {
+            // Optimize for faster inference on limited hardware
+            num_ctx: 4096, // Reduced context window (default is often 8192+)
+            num_predict: 1024, // Limit max tokens to generate
+            temperature: 0.7, // Slightly lower for more focused responses
+            top_p: 0.9,
+            top_k: 40,
+            num_thread: 4, // Adjust based on your VPS CPU cores
           },
-        ],
-        format: 'json',
-        stream: false,
-      });
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Ollama request timeout after ${this.ollamaTimeout}ms`)), this.ollamaTimeout)
+        ),
+      ]) as any;
+
+      const elapsedTime = Date.now() - startTime;
+      this.logger.log(`Ollama request completed in ${elapsedTime}ms`);
 
       const analysisResult = response.message?.content || '{}';
       this.logger.log(`Received response from Ollama (${analysisResult.length} characters)`);

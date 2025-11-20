@@ -196,22 +196,41 @@ export class ConversationsService {
         .limit(30)
         .exec();
 
+      console.log({ activeChats });
+
+
       if (activeChats.length > 0) {
         this.logger.log(`Found ${activeChats.length} active chats needing analysis.`);
 
-        for (const chat of activeChats) {
-          try {
-            this.logger.log(`Analyzing chat ${chat.chatId} (Session: ${chat.sessionId})`);
+        // Process chats in parallel with concurrency control
+        const concurrencyLimit = 3; // Process 3 chats at a time to avoid overwhelming the server
+        const chunks: any[][] = [];
 
-            // Analyze the conversation
-            // We use analyzeConversation method which handles project config retrieval and Ollama call
-            // It also updates the chat with the result
-            await this.analyzeConversation(chat.sessionId, chat.chatId);
-
-          } catch (e) {
-            this.logger.error(`Failed to analyze chat ${chat.chatId}`, e);
-          }
+        // Split chats into chunks for controlled parallel processing
+        for (let i = 0; i < activeChats.length; i += concurrencyLimit) {
+          chunks.push(activeChats.slice(i, i + concurrencyLimit));
         }
+
+        // Process each chunk in parallel
+        for (const chunk of chunks) {
+          const promises = chunk.map(async (chat) => {
+            try {
+              this.logger.log(`Analyzing chat ${chat.chatId} (Session: ${chat.sessionId})`);
+              await this.analyzeConversation(chat.sessionId, chat.chatId);
+              return { success: true, chatId: chat.chatId };
+            } catch (e) {
+              this.logger.error(`Failed to analyze chat ${chat.chatId}`, e);
+              return { success: false, chatId: chat.chatId, error: e.message };
+            }
+          });
+
+          // Wait for all chats in this chunk to complete
+          const results = await Promise.allSettled(promises);
+          const successful = results.filter(r => r.status === 'fulfilled').length;
+          this.logger.log(`Completed chunk: ${successful}/${chunk.length} successful`);
+        }
+
+        this.logger.log('Completed analysis of all active chats');
       } else {
         this.logger.log('No active chats found needing analysis.');
       }
