@@ -70,7 +70,7 @@ export class OllamaService {
         const sender = msg.fromMe ? 'Agent' : 'Customer';
         const timestamp = new Date(msg.timestamp * 1000).toISOString();
         const body = msg.body || '[Media or empty message]';
-        return `${sender}: ${body}`;
+        return `[${sender}: ${body}]`;
       })
       .join('\n');
   }
