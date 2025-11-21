@@ -171,9 +171,6 @@ export class OllamaService {
             num_thread: 4, // Adjust based on your VPS CPU cores
           },
         }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Ollama request timeout after ${this.ollamaTimeout}ms`)), this.ollamaTimeout)
-        ),
       ]) as any;
 
       const elapsedTime = Date.now() - startTime;
