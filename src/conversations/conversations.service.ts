@@ -3,10 +3,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { WhatsAppSession, WhatsAppSessionDocument } from './schemas/whatsapp-session.schema';
 import { WhatsAppChat, WhatsAppChatDocument } from './schemas/whatsapp-chat.schema';
+import { WhatsAppMessage, WhatsAppMessageDocument } from './schemas/whatsapp-message.schema';
 import { HttpService } from './http.service';
 import { ProjectResponse } from './interfaces/project-config.interface';
 import { OllamaService } from './ollama.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { RabbitService } from 'src/shared/rabbit.service';
 
 @Injectable()
 export class ConversationsService {
@@ -15,8 +17,10 @@ export class ConversationsService {
   constructor(
     @InjectModel(WhatsAppSession.name) private whatsAppSessionModel: Model<WhatsAppSessionDocument>,
     @InjectModel(WhatsAppChat.name) private whatsAppChatModel: Model<WhatsAppChatDocument>,
+    @InjectModel(WhatsAppMessage.name) private whatsAppMessageModel: Model<WhatsAppMessageDocument>,
     private httpService: HttpService,
     private ollamaService: OllamaService,
+    private rabbitService: RabbitService,
   ) { }
 
   /**
@@ -44,7 +48,7 @@ export class ConversationsService {
       const project = await this.httpService.getProjectByGroupId(projectId);
 
       this.logger.log(`Project config retrieved for session ${sessionId}, project: ${project.title}`);
-      console.log('Project Response:', JSON.stringify(project, null, 2));
+      // console.log('Project Response:', JSON.stringify(project, null, 2));
 
       return project;
     } catch (error) {
@@ -236,6 +240,35 @@ export class ConversationsService {
       }
     } catch (error) {
       this.logger.error('Error in handleCron:', error);
+    }
+  }
+
+  /**
+   * Remove all session data including chats, messages, and session metadata
+   * @param sessionId - The session ID to remove
+   */
+  async removeSessionData(sessionId: string): Promise<void> {
+    try {
+      this.logger.log(`Removing all data for session: ${sessionId}`);
+
+      // Delete all messages for this session
+      const messagesResult = await this.whatsAppMessageModel.deleteMany({ sessionId }).exec();
+      this.logger.log(`Deleted ${messagesResult.deletedCount} messages for session ${sessionId}`);
+
+      // Delete all chats for this session
+      const chatsResult = await this.whatsAppChatModel.deleteMany({ sessionId }).exec();
+      this.logger.log(`Deleted ${chatsResult.deletedCount} chats for session ${sessionId}`);
+
+      // Delete the session itself
+      const sessionResult = await this.whatsAppSessionModel.deleteOne({ sessionId }).exec();
+      this.logger.log(`Deleted session ${sessionId}: ${sessionResult.deletedCount > 0 ? 'success' : 'not found'}`);
+
+      this.rabbitService.emitToMs2('remove_session', sessionId);
+
+      this.logger.log(`Successfully removed all data for session: ${sessionId}`);
+    } catch (error) {
+      this.logger.error(`Error removing session data for ${sessionId}:`, error);
+      throw error;
     }
   }
 }
