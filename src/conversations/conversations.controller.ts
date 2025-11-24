@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Param, Query, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Query, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { WhatsappStorageService } from './whatsapp-storage.service';
 import { WhatsappAlertsService } from './whatsapp-alerts.service';
 import { ConversationsService } from './conversations.service';
@@ -109,6 +109,14 @@ export class ConversationsController {
     @Param('alertId') alertId: string,
   ) {
     return this.alertsService.markAsRead(alertId);
+  }
+
+  @Delete('sessions/:sessionId')
+  async removeSessionData(
+    @Param('sessionId') sessionId: string,
+  ) {
+    await this.conversationsService.removeSessionData(sessionId);
+    return { message: 'Session data removed successfully' };
   }
 }
 
