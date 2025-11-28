@@ -38,6 +38,6 @@ export class ConversationsQueueController  {
     this.logger.log({data});
     
     // Process the message and get project config for LLM analysis
-    await this.conversationsService.processMessageCreate(data);
+    //await this.conversationsService.processMessageCreate(data);
   }
 }
