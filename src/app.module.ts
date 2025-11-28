@@ -2,11 +2,10 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConversationsModule } from './conversations/conversations.module';
+import { AlertsModule } from './alerts/alerts.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import databaseConfig from './config/database.config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import { RabbitService } from './shared/rabbit.service';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -25,7 +24,8 @@ import { ScheduleModule } from '@nestjs/schedule';
       inject: [ConfigService],
     }),
     ScheduleModule.forRoot(),
-    ConversationsModule
+    ConversationsModule,
+    AlertsModule
   ],
   controllers: [AppController],
   providers: [AppService],

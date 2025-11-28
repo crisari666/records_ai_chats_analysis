@@ -12,10 +12,11 @@ export class WhatsappAlertsService {
     private readonly alertModel: Model<WhatsAppAlertDocument>,
   ) {}
 
-  async createDisconnectedAlert(sessionObjectId: Types.ObjectId, message?: string) {
+  async createDisconnectedAlert(sessionObjectId: Types.ObjectId, sessionId: string, message?: string) {
     try {
       const alert = await this.alertModel.create({
         session: sessionObjectId,
+        sessionId,
         type: 'disconnected',
         message: message ?? 'WhatsApp session disconnected',
         isRead: false,

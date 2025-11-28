@@ -27,6 +27,7 @@ async function bootstrap() {
       queueOptions: {
         durable: true,
       },
+      noAck: false, // Enable manual acknowledgment
     },
   });
   await app.startAllMicroservices();

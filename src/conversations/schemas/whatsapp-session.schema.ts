@@ -52,7 +52,7 @@ export class WhatsAppSession {
   closedAt?: Date;
 
   @Prop({ type: String, default: null })
-  qrCode: String
+  qrCode: string
 
   // Flag to explicitly mark a session as disconnected
   @Prop({ type: Boolean, default: false })
