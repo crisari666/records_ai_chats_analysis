@@ -10,6 +10,10 @@ export class WhatsAppSession {
   @Prop({ required: true, unique: true })
   sessionId: string;
 
+  // Optional title or name for the session
+  @Prop({ type: String, required: false })
+  title?: string;
+
   // Optional external reference for filtering/grouping (indexed)
   @Prop({ type: Types.ObjectId, required: false, index: true })
   refId?: Types.ObjectId;
@@ -35,6 +39,9 @@ export class WhatsAppSession {
   })
   status: string;
 
+  @Prop({ type: String, default: null })
+  qrCode: string
+
   // Last time the session was active/seen
   @Prop({ type: Date, default: Date.now })
   lastSeen: Date;
@@ -51,9 +58,6 @@ export class WhatsAppSession {
   @Prop({ type: Date, required: false })
   closedAt?: Date;
 
-  @Prop({ type: String, default: null })
-  qrCode: string
-
   // Flag to explicitly mark a session as disconnected
   @Prop({ type: Boolean, default: false })
   isDisconnected: boolean;
@@ -69,32 +73,5 @@ export class WhatsAppSession {
 export const WhatsAppSessionSchema = SchemaFactory.createForClass(WhatsAppSession);
 
 // Increment QR attempts on status transition to 'qr_generated' and
-// auto-close the session when attempts reach/exceed the maximum
-WhatsAppSessionSchema.pre('save', function (next) {
-  // ensure lastSeen is always refreshed on save
-  this.lastSeen = new Date();
-
-  if (this.isModified('status') && this.status === 'qr_generated') {
-    this.qrAttempts = (this.qrAttempts ?? 0) + 1;
-  }
-
-  // Reset attempts when session becomes authenticated or ready
-  if (this.isModified('status') && (this.status === 'authenticated' || this.status === 'ready')) {
-    this.qrAttempts = 0;
-  }
-
-  const attempts = this.qrAttempts ?? 0;
-  const maxAttempts = this.maxQrAttempts ?? AppConstants.MAX_QR_ATTEMPTS;
-  if (attempts >= maxAttempts && this.status !== 'closed') {
-    this.status = 'closed';
-    this.closedAt = this.closedAt ?? new Date();
-  }
-
-  // Keep isDisconnected in sync with status
-  if (this.isModified('status')) {
-    this.isDisconnected = this.status === 'disconnected';
-  }
-
-  next();
-});
+// auto-close the session when attempts reach/exceed the maximu
 

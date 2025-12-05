@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { WhatsAppChat, WhatsAppChatDocument } from './schemas/whatsapp-chat.schema';
 import { WhatsAppMessage, WhatsAppMessageDocument } from './schemas/whatsapp-message.schema';
+import { WhatsAppSession, WhatsAppSessionDocument } from './schemas/whatsapp-session.schema';
 import { ChatData } from './interfaces/chat-data.interface';
 import { MessageData } from './interfaces/message-data.interface';
 
@@ -13,6 +14,7 @@ export class WhatsappStorageService {
   constructor(
     @InjectModel(WhatsAppChat.name) private whatsAppChatModel: Model<WhatsAppChatDocument>,
     @InjectModel(WhatsAppMessage.name) private whatsAppMessageModel: Model<WhatsAppMessageDocument>,
+    @InjectModel(WhatsAppSession.name) private whatsAppSessionModel: Model<WhatsAppSessionDocument>,
   ) {}
 
   /**
@@ -492,10 +494,7 @@ export class WhatsappStorageService {
     refId?: string;
   }): Promise<void> {
     try {
-      const { WhatsAppSession, WhatsAppSessionSchema } = await import('./schemas/whatsapp-session.schema');
-      const sessionModel = this.whatsAppChatModel.db.model(WhatsAppSession.name, WhatsAppSessionSchema);
-      
-      await sessionModel.updateOne(
+      await this.whatsAppSessionModel.updateOne(
         { sessionId: sessionId },
         { 
           $set: {
@@ -511,14 +510,48 @@ export class WhatsappStorageService {
   }
 
   /**
+   * Update session data (only editable fields: title and refId for grouping)
+   */
+  async updateSession(sessionId: string, updateData: { title?: string; sessionId?: string }): Promise<void> {
+    try {
+      // Only allow updating specific editable fields
+      const allowedFields: any = {};
+      
+      if (updateData.title !== undefined) {
+        allowedFields.title = updateData.title;
+      }
+
+      if (updateData.sessionId !== undefined) {
+        // Map sessionId from DTO to refId in database
+        allowedFields.refId = new Types.ObjectId(updateData.sessionId);
+      }
+
+      if (Object.keys(allowedFields).length === 0) {
+        throw new Error('No valid fields to update');
+      }
+
+      const result = await this.whatsAppSessionModel.updateOne(
+        { sessionId },
+        { $set: allowedFields }
+      );
+      
+      if (result.matchedCount === 0) {
+        throw new Error(`Session not found: ${sessionId}`);
+      }
+      
+      this.logger.debug(`✏️ Session updated: ${sessionId}`, allowedFields);
+    } catch (error) {
+      this.logger.error(`Error updating session for ${sessionId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get stored sessions
    */
   async getStoredSessions(): Promise<any[]> {
     try {
-      const { WhatsAppSession, WhatsAppSessionSchema } = await import('./schemas/whatsapp-session.schema');
-      const sessionModel = this.whatsAppChatModel.db.model(WhatsAppSession.name, WhatsAppSessionSchema);
-      
-      const sessions = await sessionModel.find({}).exec();
+      const sessions = await this.whatsAppSessionModel.find({}).exec();
       return sessions.map(session => ({
         sessionId: session.sessionId,
         status: session.status,
@@ -537,10 +570,7 @@ export class WhatsappStorageService {
    */
   async getSessionsByStatus(statuses: string[]): Promise<any[]> {
     try {
-      const { WhatsAppSession, WhatsAppSessionSchema } = await import('./schemas/whatsapp-session.schema');
-      const sessionModel = this.whatsAppChatModel.db.model(WhatsAppSession.name, WhatsAppSessionSchema);
-      
-      const sessions = await sessionModel.find({
+      const sessions = await this.whatsAppSessionModel.find({
         status: { $in: statuses }
       }).exec();
       

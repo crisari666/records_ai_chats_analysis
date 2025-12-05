@@ -1,8 +1,9 @@
-import { Controller, Get, Put, Post, Delete, Param, Query, ParseBoolPipe, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Query, Body } from '@nestjs/common';
 import { WhatsappStorageService } from './whatsapp-storage.service';
 import { WhatsappAlertsService } from './whatsapp-alerts.service';
 import { ConversationsService } from './conversations.service';
 import { Types } from 'mongoose';
+import { UpdateWhatsappSessionDto } from './dto/update-whatsapp-session.dto';
 
 @Controller('conversations')
 export class ConversationsController {
@@ -15,6 +16,15 @@ export class ConversationsController {
   @Get('sessions')
   async getSessions() {
     return this.storageService.getStoredSessions();
+  }
+
+  @Put('sessions/:sessionId')
+  async updateSession(
+    @Param('sessionId') sessionId: string,
+    @Body() updateDto: UpdateWhatsappSessionDto,
+  ) {
+    await this.storageService.updateSession(sessionId, updateDto);
+    return { message: 'Session updated successfully', sessionId };
   }
 
   @Get('sessions/:sessionId/chats')
